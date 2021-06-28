@@ -169,11 +169,11 @@ function App() {
     }
   }, [state.channelNames]);
 
-  if (state.channelNames.length === 0) return <NoStreams />;
-
   const filteredChannels = state.channelNames.filter(
     (channel) => !ignoreList.split(",").includes(channel.channelName)
   );
+
+  if (filteredChannels.length === 0) return <NoStreams />;
 
   return (
     <MultiContainer>
