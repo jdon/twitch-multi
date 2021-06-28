@@ -1,11 +1,11 @@
-import React from 'react';
-import styled from 'styled-components';
+import styled from "styled-components";
+import SettingsIcon from './Icons/SettingsIcon';
 
 const Container = styled.div`
-  width: 70px;
-
   position: absolute;
-  background: none;
+  background: #00000063;
+
+  padding: 0.5rem;
 
   opacity: 0;
 
@@ -22,37 +22,22 @@ const ItemTray = styled.div`
   flex-direction: column;
   height: 100%;
 
-  margin-left: 0.5rem;
-  margin-top: 0.5rem;
-`;
-
-const Item = styled.div`
-  text-align: center;
-  padding: 1rem;
-
-  font-weight: bold;
-  cursor: pointer;
-  background-color: #9147ff;
   color: white;
-  margin: 0.2rem;
 
-  border-radius: 20%;
-
-  &:hover {
-    background-color: #772ce8;
-  }
+  align-items: center;
 `;
 
 interface SidebarProps {
-  onClick: (orientation: 'vertical' | 'horizontal') => void
+  onSettingsClick: () => void;
 }
-const Sidebar = ({ onClick }: SidebarProps) => {
-  return <Container>
-    <ItemTray>
-      <Item onClick={() => onClick('horizontal')}>H</Item>
-      <Item onClick={() => onClick('vertical')}>V</Item>
-    </ItemTray>
-  </Container>
-}
+const Sidebar = ({ onSettingsClick }: SidebarProps) => {
+  return (
+    <Container>
+      <ItemTray>
+        <SettingsIcon onClick={onSettingsClick} />
+      </ItemTray>
+    </Container>
+  );
+};
 
 export default Sidebar;

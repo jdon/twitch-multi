@@ -3,8 +3,8 @@ import Embed from "./Embed";
 import styled from "styled-components";
 import Sidebar from "./Sidebar";
 import NoStreams from "./NoStreams";
-
-import { gridify } from "./util";
+import SettingsModal from "./SettingsModal";
+import useLocalStorage from "./useLocalStorage";
 
 const Videos = styled.div`
   height: 100%;
@@ -17,27 +17,29 @@ const MultiContainer = styled.div`
   display: flex;
 `;
 
-const Row = styled.div`
-  display: flex;
-  flex-direction: row;
-
-  width: 100%;
-  height: 100%;
-`;
-
-const Column = styled.div<{ orientation: "vertical" | "horizontal" }>`
+const Column = styled.div<{
+  numStreams: number;
+  orientation: "vertical" | "horizontal";
+}>`
   width: 100%;
   height: 100%;
 
-  display: flex;
-  flex-direction: ${(props) =>
-    props.orientation === "vertical" ? "column" : "row"};
+  display: grid;
+  grid-auto-flow: row;
 
-  ${Row} {
-    flex-direction: ${(props) =>
-      props.orientation === "vertical" ? "row" : "column"};
-  }
+  ${(props) => {
+    if (props.orientation === "horizontal") {
+      return `grid-template-columns: repeat(${props.numStreams}, 1fr);`;
+    } else {
+      return `grid-template-rows: repeat(${props.numStreams}, 1fr);`;
+    }
+  }}
 `;
+
+interface Channel {
+  channelName: string;
+  stream: React.ReactNode;
+}
 
 interface AddRemoveAction {
   type: "add" | "remove";
@@ -50,39 +52,83 @@ interface SetAction {
 
 type AnyAction = AddRemoveAction | SetAction;
 
-const initialState = { channelNames: [] };
+const initialState = { channelNames: [] as Channel[] };
 const channelReducer = (
-  state: { channelNames: string[] },
+  state: { channelNames: Channel[] },
   action: AnyAction
 ) => {
   switch (action.type) {
     case "add":
-      if (state.channelNames.includes(action.channelName)) return state;
-      return { channelNames: [...state.channelNames, action.channelName] };
+      if (
+        state.channelNames.find(
+          (channel) => channel.channelName === action.channelName
+        )
+      )
+        return state;
+      else
+        return {
+          channelNames: [
+            ...state.channelNames,
+            {
+              channelName: action.channelName,
+              stream: generateStream(action.channelName),
+            },
+          ],
+        };
     case "remove":
       return {
         channelNames: state.channelNames.filter(
-          (name) => name !== action.channelName
+          (channel) => channel.channelName !== action.channelName
         ),
       };
     case "set":
-      return { channelNames: action.channelNames };
+      return {
+        channelNames: action.channelNames.map((channel) => ({
+          channelName: channel,
+          stream: generateStream(channel),
+        })),
+      };
   }
+  return state;
+};
+
+const generateStream = (channel: string) => {
+  return (
+    <Videos>
+      <Embed channelName={channel} />
+    </Videos>
+  );
 };
 
 function App() {
   const [shouldReconnect, setShouldReconnect] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const [orientation] = useLocalStorage<"horizontal" | "vertical">(
+    "orientation",
+    "horizontal"
+  );
+  const [ignoreList] = useLocalStorage<string>("ignoreList", "");
 
   const [state, dispatch] = useReducer(channelReducer, initialState);
 
-  const [orientation, setOrientation] =
-    useState<"vertical" | "horizontal">("horizontal");
+  const escapeKeyPress = (e: any) => {
+    if (e.keyCode === 27) {
+      console.log("Escape pressed");
+    }
+  };
 
   useEffect(() => {
     const [, ...names] = window.location.pathname.split("/");
     const filteredNames = names.filter((name) => name);
 
     dispatch({ type: "set", channelNames: filteredNames });
+
+    document.addEventListener("keydown", escapeKeyPress, false);
+
+    return () => {
+      document.removeEventListener("keydown", escapeKeyPress, false);
+    };
   }, []);
 
   useEffect(() => {
@@ -110,34 +156,39 @@ function App() {
 
   useEffect(() => {
     if (state.channelNames.length > 0) {
-      document.title = state.channelNames.join("/");
+      document.title = state.channelNames
+        .map((channel) => channel.channelName)
+        .join("/");
+      window.history.replaceState(
+        null,
+        state.channelNames.map((channel) => channel.channelName).join(","),
+        `/${state.channelNames.map((channel) => channel.channelName).join("/")}`
+      );
     } else {
-      document.title = "No Streams";
+      window.history.replaceState(null, "No Streams", "/");
     }
-  }, [state.channelNames]);
-
-  const streams = React.useMemo(() => {
-    return gridify(
-      state.channelNames.map((channel, idx) => {
-        return (
-          <Videos>
-            <Embed channelName={channel} index={idx} />
-          </Videos>
-        );
-      })
-    );
   }, [state.channelNames]);
 
   if (state.channelNames.length === 0) return <NoStreams />;
 
+  const filteredChannels = state.channelNames.filter(
+    (channel) => !ignoreList.split(",").includes(channel.channelName)
+  );
+
   return (
     <MultiContainer>
-      <Sidebar onClick={setOrientation} />
+      <Sidebar onSettingsClick={() => setSettingsOpen(true)} />
 
-      <Column orientation={orientation}>
-        {streams.map((stream) => {
-          return <Row>{stream}</Row>;
-        })}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+
+      <Column
+        orientation={orientation}
+        numStreams={Math.ceil(Math.sqrt(filteredChannels.length))}
+      >
+        {filteredChannels.map((channel) => channel.stream)}
       </Column>
     </MultiContainer>
   );
