@@ -6,14 +6,12 @@ import NoStreams from "./NoStreams";
 import SettingsModal from "./SettingsModal";
 import useLocalStorage from "./useLocalStorage";
 
-const Videos = styled.div`
-  height: 100%;
-  width: 100%;
-`;
+const Videos = styled.div``;
 
 const MultiContainer = styled.div`
   height: 100vh;
 
+  background-color: black;
   display: flex;
 `;
 
@@ -24,16 +22,16 @@ const Column = styled.div<{
   width: 100%;
   height: 100%;
 
-  display: grid;
-  grid-auto-flow: row;
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
 
-  ${(props) => {
-    if (props.orientation === "horizontal") {
-      return `grid-template-columns: repeat(${props.numStreams}, 1fr);`;
-    } else {
-      return `grid-template-rows: repeat(${props.numStreams}, 1fr);`;
-    }
-  }}
+  flex-flow: ${(props) =>
+    `${props.orientation === "horizontal" ? "row" : "column"} wrap`};
+
+  ${Videos} {
+    flex-basis: ${(props) => `${100 / props.numStreams}%`};
+  }
 `;
 
 interface Channel {
@@ -47,7 +45,7 @@ interface AddRemoveAction {
 }
 interface SetAction {
   type: "set";
-  channelNames: string[];
+  channelNames: Channel[];
 }
 
 type AnyAction = AddRemoveAction | SetAction;
@@ -57,6 +55,7 @@ const channelReducer = (
   state: { channelNames: Channel[] },
   action: AnyAction
 ) => {
+  // TODO: Sort logic in here?
   switch (action.type) {
     case "add":
       if (
@@ -83,21 +82,15 @@ const channelReducer = (
       };
     case "set":
       return {
-        channelNames: action.channelNames.map((channel) => ({
-          channelName: channel,
-          stream: generateStream(channel),
-        })),
+        channelNames: action.channelNames,
       };
   }
   return state;
 };
 
 const generateStream = (channel: string) => {
-  return (
-    <Videos>
-      <Embed channelName={channel} />
-    </Videos>
-  );
+  console.log("Generating", channel);
+  return <Embed channelName={channel} />;
 };
 
 function App() {
@@ -112,23 +105,17 @@ function App() {
 
   const [state, dispatch] = useReducer(channelReducer, initialState);
 
-  const escapeKeyPress = (e: any) => {
-    if (e.keyCode === 27) {
-      console.log("Escape pressed");
-    }
-  };
-
   useEffect(() => {
     const [, ...names] = window.location.pathname.split("/");
     const filteredNames = names.filter((name) => name);
 
-    dispatch({ type: "set", channelNames: filteredNames });
-
-    document.addEventListener("keydown", escapeKeyPress, false);
-
-    return () => {
-      document.removeEventListener("keydown", escapeKeyPress, false);
-    };
+    dispatch({
+      type: "set",
+      channelNames: filteredNames.map((channel) => ({
+        channelName: channel,
+        stream: generateStream(channel),
+      })),
+    });
   }, []);
 
   useEffect(() => {
@@ -188,7 +175,10 @@ function App() {
         orientation={orientation}
         numStreams={Math.ceil(Math.sqrt(filteredChannels.length))}
       >
-        {filteredChannels.map((channel) => channel.stream)}
+        {filteredChannels.map((channel) => {
+          console.log(channel.channelName);
+          return <Videos key={channel.channelName}>{channel.stream}</Videos>;
+        })}
       </Column>
     </MultiContainer>
   );
