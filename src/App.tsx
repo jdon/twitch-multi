@@ -134,7 +134,7 @@ function App() {
     if (shouldReconnect) {
       console.log("Reconnecting to websocket");
       setShouldReconnect(false);
-      const client = new W3CWebSocket('ws://twitchnotification.jdon.dev/ws');
+      const client = new W3CWebSocket('wss://twitchnotification.jdon.dev/ws');
 
       client.onmessage = (websocketMessage) => {
         console.log(websocketMessage.data);
