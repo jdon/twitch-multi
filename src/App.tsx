@@ -1,4 +1,5 @@
 import React, { useEffect, useReducer, useState } from "react";
+import { w3cwebsocket as W3CWebSocket } from "websocket";
 import Embed from "./Embed";
 import styled from "styled-components";
 import Sidebar from "./Sidebar";
@@ -48,6 +49,18 @@ interface SetAction {
   channelNames: Channel[];
 }
 
+
+interface channelNotification {
+  notification_type: "online" | "offline"
+  channel: string
+}
+
+interface onlineChannels {
+  online_channels: string[]
+}
+
+type WebsocketMessage = onlineChannels | channelNotification;
+
 type AnyAction = AddRemoveAction | SetAction;
 
 const initialState = { channelNames: [] as Channel[] };
@@ -85,7 +98,6 @@ const channelReducer = (
         channelNames: action.channelNames,
       };
   }
-  return state;
 };
 
 const generateStream = (channel: string) => {
@@ -120,24 +132,35 @@ function App() {
 
   useEffect(() => {
     if (shouldReconnect) {
-      console.log("Reconnecting to SSE");
+      console.log("Reconnecting to websocket");
       setShouldReconnect(false);
+      const client = new W3CWebSocket('ws://twitchnotification.jdon.dev/ws');
 
-      const sse = new EventSource(
-        "https://twitchnotification.jdon.dev/streams/events"
-      );
-
-      sse.addEventListener("channelOnline", (e: any) =>
-        dispatch({ type: "add", channelName: e.data })
-      );
-      sse.addEventListener("channelOffline", (e: any) =>
-        dispatch({ type: "remove", channelName: e.data })
-      );
-
-      sse.onerror = () => {
-        console.error("SSE closed!");
-        setShouldReconnect(true);
+      client.onmessage = (websocketMessage) => {
+        console.log(websocketMessage.data);
+        const message = JSON.parse(websocketMessage.data as unknown as string) as WebsocketMessage;
+        if("online_channels" in message) {
+          const onlineChannels = message.online_channels;
+          dispatch({
+            type: "set",
+            channelNames: onlineChannels.map((channel) => ({
+              channelName: channel,
+              stream: generateStream(channel),
+            })),
+          });
+        }
+        if("notification_type" in message) {
+          const notificationType = message.notification_type;
+          const affectedChannel = message.channel;
+          const typeToSend = notificationType === "online" ? "add" : "remove";
+          dispatch({ type: typeToSend, channelName:affectedChannel })
+        }
       };
+
+      client.onerror = (err) => {
+        console.error("Websocket closed!");
+        setShouldReconnect(true);
+      }
     }
   }, [shouldReconnect]);
 
