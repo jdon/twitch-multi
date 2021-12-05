@@ -134,7 +134,7 @@ function App() {
     if (shouldReconnect) {
       console.log("Reconnecting to websocket");
       setShouldReconnect(false);
-      const client = new W3CWebSocket('wss://twitchnotification.jdon.dev/ws');
+      const client = new W3CWebSocket('wss://ws.jdon.dev');
 
       client.onmessage = (websocketMessage) => {
         console.log(websocketMessage.data);
@@ -158,6 +158,13 @@ function App() {
       };
 
       client.onerror = (err) => {
+        console.error("Websocket errored!");
+        setShouldReconnect(true);
+      }
+      client.onopen = () => {
+        client.send("channels");
+      }
+      client.onclose = (err) => {
         console.error("Websocket closed!");
         setShouldReconnect(true);
       }
