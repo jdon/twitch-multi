@@ -40,8 +40,10 @@ const IgnoreStreamButton = styled.div`
   text-align: right;
   position: relative;
   top: 0;
-  font-size: 15px;
+  font-size: 30px;
   opacity: 0;
+  float:right;
+
 
   &:hover {
     cursor: pointer;
