@@ -35,6 +35,20 @@ const Column = styled.div<{
   }
 `;
 
+const IgnoreStreamButton = styled.div`
+  color: grey;
+  text-align: right;
+  position: relative;
+  top: 0;
+  font-size: 15px;
+  opacity: 0;
+
+  &:hover {
+    cursor: pointer;
+    opacity: 1;
+  }
+`;
+
 interface Channel {
   channelName: string;
   stream: React.ReactNode;
@@ -113,7 +127,7 @@ function App() {
     "orientation",
     "horizontal"
   );
-  const [ignoreList] = useLocalStorage<string>("ignoreList", "");
+  const [ignoreList, setIgnoreList] = useLocalStorage<string>("ignoreList", "");
 
   const [state, dispatch] = useReducer(channelReducer, initialState);
 
@@ -190,7 +204,7 @@ function App() {
     (channel) => !ignoreList.split(",").includes(channel.channelName)
   );
 
-  if (filteredChannels.length === 0) return <NoStreams />;
+
 
   return (
     <MultiContainer>
@@ -201,13 +215,22 @@ function App() {
         onClose={() => setSettingsOpen(false)}
       />
 
+
       <Column
         orientation={orientation}
         numStreams={Math.ceil(Math.sqrt(filteredChannels.length))}
       >
+        {filteredChannels.length === 0 && !settingsOpen && <NoStreams />}
         {filteredChannels.map((channel) => {
           console.log(channel.channelName);
-          return <Videos key={channel.channelName}>{channel.stream}</Videos>;
+          return (
+             <Videos key={channel.channelName}>
+                <IgnoreStreamButton onClick={() => setIgnoreList(ignoreList.toString() + channel.channelName + ",")}>
+                😎
+                </IgnoreStreamButton>
+               {channel.stream}
+              </Videos>
+              );
         })}
       </Column>
     </MultiContainer>
