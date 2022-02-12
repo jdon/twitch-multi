@@ -10,7 +10,6 @@ import useWebSocket from 'react-use-websocket';
 import { chunk } from "lodash";
 
 const Video = styled.div`
-  display:flex;
   aspect-ratio: 16/9;
 `;
 
@@ -127,6 +126,22 @@ const generateStream = (channel: string) => {
   return <Embed channelName={channel} />;
 };
 
+const MultiStreamGrid = ({ gridStreams }: { gridStreams: Channel[][] }) => {
+  return <>
+    {gridStreams.map((channels, idx) => {
+      return (
+        <Row
+          numberOfColumns={channels.length}
+          isLast={idx === gridStreams.length - 1}>
+          {channels.map(channel => (
+            <Video key={channel.channelName}>
+              {channel.stream}
+            </Video>))}
+        </Row>)
+    })}
+  </>
+}
+
 const App = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -205,10 +220,8 @@ const App = () => {
     (channel) => !ignoreList.split(",").includes(channel.channelName)
   ), [ignoreList, state.channelNames])
 
-  const gridSteams = useMemo(() => {
-    console.log('regen stream')
-    return generateGrid(filteredChannels, numberOfRows)
-  }, [filteredChannels, numberOfRows])
+  const gridStreams = useMemo(() => generateGrid(filteredChannels, numberOfRows)
+    , [filteredChannels, numberOfRows])
 
   if (filteredChannels.length === 0) return <NoStreams />;
 
@@ -225,9 +238,7 @@ const App = () => {
         orientation={orientation}
         numStreams={Math.ceil(Math.sqrt(filteredChannels.length))}
       >
-        {gridSteams.map((channels, idx) => <Row numberOfColumns={channels.length} isLast={idx !== 0 && idx === gridSteams.length - 1}>
-          {channels.map(channel => <Video key={channel.channelName}>{channel.stream}</Video>)}
-        </Row>)}
+        <MultiStreamGrid gridStreams={gridStreams} />
       </StreamGrid>
     </MultiContainer>
   );
