@@ -1,5 +1,4 @@
-import React, { useEffect, useReducer, useState } from "react";
-import { w3cwebsocket as W3CWebSocket } from "websocket";
+import React, { useEffect, useMemo, useReducer, useState } from "react";
 import Embed from "./Embed";
 import styled from "styled-components";
 import Sidebar from "./Sidebar";
@@ -7,16 +6,22 @@ import NoStreams from "./NoStreams";
 import SettingsModal from "./SettingsModal";
 import useLocalStorage from "./useLocalStorage";
 
-const Videos = styled.div``;
+import useWebSocket from 'react-use-websocket';
+import { chunk } from "lodash";
+
+const Video = styled.div`
+  display:flex;
+  aspect-ratio: 16/9;
+`;
 
 const MultiContainer = styled.div`
-  height: 100vh;
+  height: 100%;
 
   background-color: black;
   display: flex;
 `;
 
-const Column = styled.div<{
+const StreamGrid = styled.div<{
   numStreams: number;
   orientation: "vertical" | "horizontal";
 }>`
@@ -24,16 +29,31 @@ const Column = styled.div<{
   height: 100%;
 
   display: flex;
-  flex-flow: row wrap;
+  flex-direction: column;
   justify-content: center;
-
-  flex-flow: ${(props) =>
-    `${props.orientation === "horizontal" ? "row" : "column"} wrap`};
-
-  ${Videos} {
-    flex-basis: ${(props) => `${100 / props.numStreams}%`};
-  }
 `;
+
+const Row = styled.div<{ numberOfColumns: number, isLast: boolean }>`
+  display: grid;
+  flex-direction: row;
+  justify-content: center;
+  grid-template-columns: ${props => `repeat(${props.numberOfColumns}, 1fr);`}
+
+  ${props => props.isLast && `
+      display: flex;
+      aspect-ratio: unset;
+
+      flex: 1;
+  `}
+
+  ${Video} {
+    ${props => props.isLast && `
+      display: flex;
+      aspect-ratio: unset;
+      flex: 1;
+    `}
+  }
+`
 
 interface Channel {
   channelName: string;
@@ -49,17 +69,16 @@ interface SetAction {
   channelNames: Channel[];
 }
 
-
-interface channelNotification {
+interface ChannelUpdateEvent {
   notification_type: "online" | "offline"
   channel: string
 }
 
-interface onlineChannels {
+interface OnlineChannelsEvent {
   online_channels: string[]
 }
 
-type WebsocketMessage = onlineChannels | channelNotification;
+type WebsocketMessage = ChannelUpdateEvent | OnlineChannelsEvent;
 
 type AnyAction = AddRemoveAction | SetAction;
 
@@ -68,7 +87,6 @@ const channelReducer = (
   state: { channelNames: Channel[] },
   action: AnyAction
 ) => {
-  // TODO: Sort logic in here?
   switch (action.type) {
     case "add":
       if (
@@ -100,20 +118,34 @@ const channelReducer = (
   }
 };
 
+const generateGrid = <T extends unknown>(array: T[], numberOfRows?: number) => {
+  const gridLength = (!numberOfRows || numberOfRows === 0) ? Math.ceil(Math.sqrt(array.length)) : numberOfRows
+  return chunk(array, gridLength)
+}
+
 const generateStream = (channel: string) => {
-  console.log("Generating", channel);
   return <Embed channelName={channel} />;
 };
 
-function App() {
-  const [shouldReconnect, setShouldReconnect] = useState(true);
+const App = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const {
+    lastMessage,
+    sendMessage
+  } = useWebSocket('wss://ws.jdon.dev', {
+    reconnectInterval: 5000, shouldReconnect: () => true, onOpen: () => {
+      sendMessage('channels')
+    }
+  });
 
   const [orientation] = useLocalStorage<"horizontal" | "vertical">(
     "orientation",
     "horizontal"
   );
+
   const [ignoreList] = useLocalStorage<string>("ignoreList", "");
+  const [numberOfRows] = useLocalStorage<number>("numberOfColumns", 0);
 
   const [state, dispatch] = useReducer(channelReducer, initialState);
 
@@ -131,45 +163,28 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (shouldReconnect) {
-      console.log("Reconnecting to websocket");
-      setShouldReconnect(false);
-      const client = new W3CWebSocket('wss://ws.jdon.dev');
+    if (lastMessage) {
+      const jsonMessage: WebsocketMessage = JSON.parse(lastMessage.data)
 
-      client.onmessage = (websocketMessage) => {
-        console.log(websocketMessage.data);
-        const message = JSON.parse(websocketMessage.data as unknown as string) as WebsocketMessage;
-        if("online_channels" in message) {
-          const onlineChannels = message.online_channels;
-          dispatch({
-            type: "set",
-            channelNames: onlineChannels.map((channel) => ({
-              channelName: channel,
-              stream: generateStream(channel),
-            })),
-          });
-        }
-        if("notification_type" in message) {
-          const notificationType = message.notification_type;
-          const affectedChannel = message.channel;
-          const typeToSend = notificationType === "online" ? "add" : "remove";
-          dispatch({ type: typeToSend, channelName:affectedChannel })
-        }
-      };
+      if ('notification_type' in jsonMessage) {
+        const notificationType = jsonMessage.notification_type;
+        const affectedChannel = jsonMessage.channel;
+        const typeToSend = notificationType === "online" ? "add" : "remove";
+        dispatch({ type: typeToSend, channelName: affectedChannel })
+      }
 
-      client.onerror = (err) => {
-        console.error("Websocket errored!");
-        setShouldReconnect(true);
-      }
-      client.onopen = () => {
-        client.send("channels");
-      }
-      client.onclose = (err) => {
-        console.error("Websocket closed!");
-        setShouldReconnect(true);
+      else if ("online_channels" in jsonMessage) {
+        const onlineChannels = jsonMessage.online_channels;
+        dispatch({
+          type: "set",
+          channelNames: onlineChannels.map((channel) => ({
+            channelName: channel,
+            stream: generateStream(channel),
+          })),
+        });
       }
     }
-  }, [shouldReconnect]);
+  }, [lastMessage])
 
   useEffect(() => {
     if (state.channelNames.length > 0) {
@@ -186,9 +201,14 @@ function App() {
     }
   }, [state.channelNames]);
 
-  const filteredChannels = state.channelNames.filter(
+  const filteredChannels = useMemo(() => state.channelNames.filter(
     (channel) => !ignoreList.split(",").includes(channel.channelName)
-  );
+  ), [ignoreList, state.channelNames])
+
+  const gridSteams = useMemo(() => {
+    console.log('regen stream')
+    return generateGrid(filteredChannels, numberOfRows)
+  }, [filteredChannels, numberOfRows])
 
   if (filteredChannels.length === 0) return <NoStreams />;
 
@@ -201,15 +221,14 @@ function App() {
         onClose={() => setSettingsOpen(false)}
       />
 
-      <Column
+      <StreamGrid
         orientation={orientation}
         numStreams={Math.ceil(Math.sqrt(filteredChannels.length))}
       >
-        {filteredChannels.map((channel) => {
-          console.log(channel.channelName);
-          return <Videos key={channel.channelName}>{channel.stream}</Videos>;
-        })}
-      </Column>
+        {gridSteams.map((channels, idx) => <Row numberOfColumns={channels.length} isLast={idx !== 0 && idx === gridSteams.length - 1}>
+          {channels.map(channel => <Video key={channel.channelName}>{channel.stream}</Video>)}
+        </Row>)}
+      </StreamGrid>
     </MultiContainer>
   );
 }

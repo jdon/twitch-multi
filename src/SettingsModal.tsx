@@ -16,7 +16,7 @@ const Dropdown = styled.select`
   }
 `;
 
-const Label = styled.div`
+const Label = styled.label`
   margin-right: 1rem;
 `;
 
@@ -50,14 +50,32 @@ interface SettingsModalProps {
 const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
   const [orientation, setOrientation] = useLocalStorage("orientation", "horizontal");
   const [ignoreList, setIgnoreList] = useLocalStorage("ignoreList", "");
+  const [numOfColumns, setnumOfColumns] = useLocalStorage("numberOfColumns", 0);
+
+  const changeNumInput = (callback: (value: number) => void) => {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.currentTarget.value
+      const parsed = parseInt(value)
+
+      if (value === "") {
+        callback(0)
+      } else if (isNaN(parsed)) {
+        e.preventDefault()
+      } else {
+        callback(parsed)
+      }
+    }
+  }
 
   if (!isOpen) return null;
+
   return (
     <Modal onClose={onClose} header="Settings">
       <Form>
-        <Label>Orientation:</Label>
+        <Label htmlFor="orientation">Orientation:</Label>
 
         <Dropdown
+          id="orientation"
           value={orientation}
           onChange={(e) => setOrientation(e.currentTarget.value)}
         >
@@ -65,11 +83,20 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
           <option value="vertical">Vertical</option>
         </Dropdown>
 
-        <Label>Ignore List:</Label>
+        <Label htmlFor="ignoreList">Ignore List:</Label>
         <Textbox
+          id="ignoreList"
           placeholder="popo336"
           onChange={(e) => setIgnoreList(e.currentTarget.value)}
           value={ignoreList}
+        />
+
+        <Label htmlFor="numOfColumns">Number of columns:</Label>
+        <Textbox
+          id="numOfColumns"
+          placeholder="0 for auto"
+          onChange={changeNumInput(value => setnumOfColumns(value))}
+          value={numOfColumns}
         />
       </Form>
     </Modal>
