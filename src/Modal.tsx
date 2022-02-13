@@ -8,6 +8,8 @@ const Container = styled.div`
   align-items: center;
   inset: 0;
 
+  z-index: 1;
+
   background-color: #000000b8;
 `;
 

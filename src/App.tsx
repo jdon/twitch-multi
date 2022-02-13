@@ -223,8 +223,6 @@ const App = () => {
   const gridStreams = useMemo(() => generateGrid(filteredChannels, numberOfRows)
     , [filteredChannels, numberOfRows])
 
-  if (filteredChannels.length === 0) return <NoStreams />;
-
   return (
     <MultiContainer>
       <Sidebar onSettingsClick={() => setSettingsOpen(true)} />
@@ -234,12 +232,13 @@ const App = () => {
         onClose={() => setSettingsOpen(false)}
       />
 
-      <StreamGrid
+      {filteredChannels.length === 0 ? <NoStreams /> : <StreamGrid
         orientation={orientation}
         numStreams={Math.ceil(Math.sqrt(filteredChannels.length))}
       >
         <MultiStreamGrid gridStreams={gridStreams} />
-      </StreamGrid>
+      </StreamGrid>}
+
     </MultiContainer>
   );
 }
