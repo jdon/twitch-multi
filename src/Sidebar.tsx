@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import SettingsIcon from './Icons/SettingsIcon';
+import RotateIcon from "./Icons/RotateIcon";
 
 const Container = styled.div`
   position: absolute;
@@ -25,16 +26,22 @@ const ItemTray = styled.div`
   color: white;
 
   align-items: center;
+
+  svg {
+    margin-bottom: 1rem;
+  }
 `;
 
 interface SidebarProps {
   onSettingsClick: () => void;
+  onRotateClick: () => void;
 }
-const Sidebar = ({ onSettingsClick }: SidebarProps) => {
+const Sidebar = ({ onSettingsClick, onRotateClick }: SidebarProps) => {
   return (
     <Container>
       <ItemTray>
         <SettingsIcon onClick={onSettingsClick} />
+        <RotateIcon onClick={onRotateClick} />
       </ItemTray>
     </Container>
   );

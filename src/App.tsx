@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useReducer, useState } from "react";
 import Embed from "./Embed";
 import styled from "styled-components";
 import Sidebar from "./Sidebar";
+
 import NoStreams from "./NoStreams";
 import SettingsModal from "./SettingsModal";
 import useLocalStorage from "./useLocalStorage";
 
 import useWebSocket from 'react-use-websocket';
-import { chunk } from "lodash";
+import { chunk, cloneDeep, cloneDeepWith } from "lodash";
 
 const Video = styled.div`
   aspect-ratio: 16/9;
@@ -216,6 +217,20 @@ const App = () => {
     }
   }, [state.channelNames]);
 
+  const rotateChannels = () => {
+    const clonedChannels = cloneDeep(state.channelNames)
+
+    const lastElement = clonedChannels.shift()
+
+    if (lastElement)
+      clonedChannels.push(lastElement);
+
+    dispatch({
+      type: "set",
+      channelNames: clonedChannels,
+    });
+  }
+
   const filteredChannels = useMemo(() => state.channelNames.filter(
     (channel) => !ignoreList.split(",").includes(channel.channelName)
   ), [ignoreList, state.channelNames])
@@ -225,7 +240,7 @@ const App = () => {
 
   return (
     <MultiContainer>
-      <Sidebar onSettingsClick={() => setSettingsOpen(true)} />
+      <Sidebar onRotateClick={rotateChannels} onSettingsClick={() => setSettingsOpen(true)} />
 
       <SettingsModal
         isOpen={settingsOpen}
