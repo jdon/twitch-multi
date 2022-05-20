@@ -1,15 +1,22 @@
-import { TwitchEmbed } from "react-twitch-embed";
+import ReactPlayer from 'react-player'
 
 const Embed = ({ channelName }) => {
+  const url = `https://www.twitch.tv/${channelName}`;
   return (
-    <TwitchEmbed
+    <ReactPlayer
+      url={url}
       width="100%"
       height="100%"
-      layout="video"
-      muted={true}
-      withChat={false}
-      channel={channelName}
-      id={channelName}
+      config={{
+        twitch: {
+          options: {
+            layout: 'video',
+            autoplay: true,
+            muted: true
+          }
+        }
+      }
+      }
     />
   );
 };
