@@ -149,10 +149,8 @@ const App = () => {
   const {
     lastMessage,
     sendMessage
-  } = useWebSocket('wss://ws.jdon.dev', {
-    reconnectInterval: 5000, shouldReconnect: () => true, onOpen: () => {
-      sendMessage('channels')
-    }
+  } = useWebSocket('wss://multi-stream.jdon.dev/ws', {
+    reconnectInterval: 5000, shouldReconnect: () => true
   });
 
   const [orientation] = useLocalStorage<"horizontal" | "vertical">(
