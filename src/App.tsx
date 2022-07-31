@@ -149,7 +149,7 @@ const App = () => {
   const {
     lastMessage,
     sendMessage
-  } = useWebSocket('wss://multi-stream.jdon.dev/ws', {
+  } = useWebSocket('wss://multi-stream.than.dev/ws', {
     reconnectInterval: 5000, shouldReconnect: () => true
   });
 
